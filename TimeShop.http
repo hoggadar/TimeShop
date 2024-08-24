@@ -1,0 +1,6 @@
+@TimeShop_HostAddress = http://localhost:5218
+
+GET {{TimeShop_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
