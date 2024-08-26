@@ -8,10 +8,12 @@ namespace TimeShop.Application.Services
     public class UserService : IUserService
     {
         private readonly IUserRepository _userRepository;
+        private readonly IRoleRepository _roleRepository;
 
-        public UserService(IUserRepository userRepository)
+        public UserService(IUserRepository userRepository, IRoleRepository roleRepository)
         {
             _userRepository = userRepository;
+            _roleRepository = roleRepository;
         }
 
         public async Task<List<UserEntity>> GetAll()
@@ -29,16 +31,17 @@ namespace TimeShop.Application.Services
             return await _userRepository.GetByEmail(email);
         }
 
-        public async Task<UserEntity?> Create(SignupDTO dto)
+        public async Task<UserEntity?> Create(SignupDTO dto, string roleName)
         {
-            var user = await _userRepository.GetByEmail(dto.Email);
-            if (user != null) return null;
+            var role = await _roleRepository.GetByName(roleName);
+            if (role == null) return null;
             var newUser = new UserEntity
             {
                 Name = dto.Name,
                 Surname = dto.Surname,
                 Email = dto.Email,
                 Password = HashPassword(dto.Password),
+                RoleId = role.Id,
             };
             await _userRepository.Create(newUser);
             return newUser;
@@ -64,13 +67,14 @@ namespace TimeShop.Application.Services
             return true;
         }
 
+        public bool VerifyPassword(string userPassword, string password)
+        {
+            return BCrypt.Net.BCrypt.Verify(password, userPassword);
+        }
+
         public static string HashPassword(string password)
         {
             return BCrypt.Net.BCrypt.HashPassword(password);
-        }
-        public static bool VerifyPassword(string userPassword, string password)
-        {
-            return BCrypt.Net.BCrypt.Verify(password, userPassword);
         }
     }
 }

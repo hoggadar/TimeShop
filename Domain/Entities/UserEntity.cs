@@ -24,7 +24,7 @@ namespace TimeShop.Domain.Entities
         [Required]
         public int RoleId { get; set; }
 
-        [ForeignKey("Id")]
+        [ForeignKey("RoleId")]
         public RoleEntity? Role { get; set; }
     }
 }
