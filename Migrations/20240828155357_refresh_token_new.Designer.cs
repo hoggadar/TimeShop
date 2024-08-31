@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using TimeShop.Infrastructure.Data;
@@ -11,9 +12,11 @@ using TimeShop.Infrastructure.Data;
 namespace TimeShop.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20240828155357_refresh_token_new")]
+    partial class refresh_token_new
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -45,8 +48,7 @@ namespace TimeShop.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("UserId")
-                        .IsUnique();
+                    b.HasIndex("UserId");
 
                     b.ToTable("RefreshTokens");
                 });
@@ -105,8 +107,8 @@ namespace TimeShop.Migrations
             modelBuilder.Entity("TimeShop.Domain.Entities.RefreshTokenEntity", b =>
                 {
                     b.HasOne("TimeShop.Domain.Entities.UserEntity", "User")
-                        .WithOne("RefreshToken")
-                        .HasForeignKey("TimeShop.Domain.Entities.RefreshTokenEntity", "UserId")
+                        .WithMany()
+                        .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
@@ -127,11 +129,6 @@ namespace TimeShop.Migrations
             modelBuilder.Entity("TimeShop.Domain.Entities.RoleEntity", b =>
                 {
                     b.Navigation("Users");
-                });
-
-            modelBuilder.Entity("TimeShop.Domain.Entities.UserEntity", b =>
-                {
-                    b.Navigation("RefreshToken");
                 });
 #pragma warning restore 612, 618
         }

@@ -26,5 +26,7 @@ namespace TimeShop.Domain.Entities
 
         [ForeignKey("RoleId")]
         public RoleEntity? Role { get; set; }
+
+        public RefreshTokenEntity? RefreshToken { get; set; }
     }
 }

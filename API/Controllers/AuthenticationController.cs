@@ -1,9 +1,9 @@
-﻿using Microsoft.AspNetCore.Http;
+﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using System.Security.Claims;
 using TimeShop.Application.DTOs.User;
 using TimeShop.Application.Interfaces;
-using TimeShop.Application.Services;
+using TimeShop.Domain.Entities;
 
 namespace TimeShop.API.Controllers
 {
@@ -28,14 +28,19 @@ namespace TimeShop.API.Controllers
             var user = await _userServices.GetByEmail(dto.Email);
             if (user != null) return BadRequest("User already exists");
             var createdUser = await _userServices.Create(dto, "User");
-            if (createdUser == null) return StatusCode(500, "Failed to create user");
             var claims = new List<Claim>
             {
                 new Claim(ClaimTypes.Email, createdUser.Email),
-                new Claim(ClaimTypes.Role, createdUser.Role!.Name)
+                new Claim(ClaimTypes.Role, createdUser.Role.Name)
             };
-            string token = _tokenService.GenerateAccessToken(claims);
-            return Ok(token);
+            string accessToken = _tokenService.GenerateAccessToken(claims);
+            var refreshToken = await _tokenService.CreateRefreshToken(createdUser.Id);
+            var tokenDTO = new TokenDTO
+            {
+                AccessToken = accessToken,
+                RefreshToken = refreshToken.Token
+            };
+            return Ok(tokenDTO);
         }
 
         [HttpPost("login")]
@@ -46,14 +51,59 @@ namespace TimeShop.API.Controllers
             {
                 return Unauthorized("Incorrect email or password");
             }
+            var refreshToken = await _tokenService.GetRefreshTokenByUserId(user.Id);
+            if (refreshToken != null && !_tokenService.RefreshTokenIsExpired(refreshToken) && refreshToken.Revoked)
+            {
+                await _tokenService.ActivateRefreshTokenByUserId(user.Id);
+                return Ok("Refresh token is active");
+            }
+            await _tokenService.DeleteRefreshToken(refreshToken);
             var role = await _roleService.GetById(user.RoleId);
             var claims = new List<Claim>
             {
                 new Claim(ClaimTypes.Email, user.Email),
-                new Claim(ClaimTypes.Role, role!.Name)
+                new Claim(ClaimTypes.Role, role.Name)
             };
-            string token = _tokenService.GenerateAccessToken(claims);
-            return Ok(token);
+            string accessToken = _tokenService.GenerateAccessToken(claims);
+            refreshToken = await _tokenService.CreateRefreshToken(user.Id);
+            var tokenDTO = new TokenDTO
+            {
+                AccessToken = accessToken,
+                RefreshToken = refreshToken.Token
+            };
+            return Ok(tokenDTO);
+        }
+
+        [HttpGet("logout")]
+        [Authorize]
+        public async Task<IActionResult> Logout()
+        {
+            var user = await _userServices.GetByEmail(User.FindFirst(ClaimTypes.Email)!.Value);
+            await _tokenService.RevokeRefreshTokenByUserId(user.Id);
+            return Ok("Logout");
+        }
+
+        [HttpPost("refresh")]
+        public async Task<IActionResult> RefreshToken([FromBody] TokenDTO dto)
+        {
+            var refreshToken = await _tokenService.GetRefreshTokenByToken(dto.RefreshToken);
+            if (refreshToken == null || refreshToken.Revoked || _tokenService.RefreshTokenIsExpired(refreshToken))
+            {
+                return Unauthorized("Refresh token is incorrect or expired");
+            }
+            if (!await _tokenService.VerifyRefreshToken(dto))
+            {
+                return Unauthorized("Incorrect access or refresh token");
+            }
+            var user = await _userServices.GetById(refreshToken.UserId);
+            var role = await _roleService.GetById(user.RoleId);
+            var claims = new List<Claim>
+            {
+                new Claim(ClaimTypes.Email, user.Email),
+                new Claim(ClaimTypes.Role, role.Name)
+            };
+            string accessToken = _tokenService.GenerateAccessToken(claims);
+            return Ok(accessToken);
         }
     }
 }
